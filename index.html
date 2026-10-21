@@ -117,6 +117,17 @@ input{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--
 @keyframes grow{from{transform:scale(.2);opacity:0}}
 .lx{background:none;border:0;color:var(--muted);padding:0 4px;font-size:16px;line-height:1}
 .lx:hover{color:var(--ink)}
+.lbtns{display:inline-flex;gap:6px;margin-left:10px;vertical-align:middle}
+.lbtn{width:40px;height:40px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:10px;border:1px solid var(--gold);background:var(--surface);color:var(--gold-deep)}
+.lbtn.danger{border-color:#d9a19b;color:#b42318}
+.lbtn:hover{background:var(--gold-soft)}
+.log li.ledit{display:flex;flex-direction:column;gap:10px;background:var(--gold-soft);margin:0 -16px;padding:14px 16px}
+.eform{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
+.eform label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+.eform label input{min-height:42px;width:130px;font-weight:700}
+.eform label.grow{flex:1 1 180px}.eform label.grow input{width:100%}
+button.big{min-height:42px}
+#tog:not(.primary){background:var(--gold);color:#1b1407;border-color:var(--gold)}
 .add.sub{grid-template-columns:90px 1fr auto auto}
 @media (max-width:520px){.rose .lbl,.rose .lblp{font-size:15px}}
 .rings{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:18px;align-items:center}
@@ -151,7 +162,7 @@ input{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--
 (function(){
 const SAVED = JSON.parse(document.getElementById('state').textContent);
 let S = JSON.parse(JSON.stringify(SAVED));
-let canEdit = false, editing = false, dirty = false, saving = false, msg = '';
+let canEdit = false, editing = false, dirty = false, saving = false, msg = '', editK = null;
 let sb = null, user = null, loginOpen = false;
 const CFG = window.MAQSAD_CONFIG || {};
 let view = 'rose'; try{ view = localStorage.getItem('maqsad-view') || 'rose'; }catch(e){}
@@ -187,7 +198,7 @@ function ringsHTML(gs){
     leg += `<div class="rli ${p>=100?'full':''}"><span class="ix">${i+1}</span><span class="nm">${esc(g.name)}</span><span class="pv num">${p1(p)}%</span>
       <span class="sub num">${fmt(g.done)} / ${fmt(g.target)} ${esc(g.unit)} · qoldi ${fmt(Math.max(0,g.target-g.done))}</span></div>`; });
   leg += '</div>';
-  return `<section style="display:flex;flex-direction:column;gap:12px"><h2>Halqalar: har bir maqsad o‘z yo‘lagida</h2><div class="rings">${svg}${leg}</div></section>`;
+  return `<section style="display:flex;flex-direction:column;gap:12px"><div class="rings">${svg}${leg}</div></section>`;
 }
 
 function roseHTML(gs){
@@ -215,13 +226,13 @@ function roseHTML(gs){
   svg += `<circle cx="${cx}" cy="${cy}" r="${r0-6}" fill="var(--surface)" stroke="var(--line)"/>
   <text x="${cx}" y="${cy+2}" text-anchor="middle" fill="var(--deep)" font-family="Bricolage Grotesque, Georgia, serif" font-weight="800" font-size="20">${p1(avg)}%</text>
   <text x="${cx}" y="${cy+18}" text-anchor="middle" fill="var(--muted)" font-size="10">umumiy</text></svg>`;
-  return `<section style="display:flex;flex-direction:column;gap:12px"><h2>Maqsadlar guli</h2><div class="rose">${svg}
+  return `<section style="display:flex;flex-direction:column;gap:12px"><div class="rose">${svg}
     <p class="hint">Har bir yaproq bitta maqsad. Ish bajarilgan sari yaproq markazdan tashqariga qarab to‘ladi.</p></div></section>`;
 }
 
 function tanksHTML(gs){
   const wave = '<svg class="wave" viewBox="0 0 200 10" preserveAspectRatio="none" aria-hidden="true"><path d="M0 5 Q12.5 0 25 5 T50 5 T75 5 T100 5 T125 5 T150 5 T175 5 T200 5 V10 H0Z"/></svg>';
-  let h = `<section style="display:flex;flex-direction:column;gap:12px"><h2>Har bir maqsad qanchalik to‘ldi</h2><div class="tanks">`;
+  let h = `<section style="display:flex;flex-direction:column;gap:12px"><div class="tanks">`;
   gs.forEach((g,i)=>{
     const p = pct(g), full = p>=100;
     h += `<div class="tank ${full?'full':''}" role="img" aria-label="${esc(g.name)}: ${p1(p)} foiz">
@@ -234,7 +245,7 @@ function tanksHTML(gs){
       <div class="tcount num"><b>${fmt(g.done)}</b> / ${fmt(g.target)}<br>${esc(g.unit)}</div>
     </div>`;
   });
-  h += `</div></section><section style="display:flex;flex-direction:column;gap:12px"><h2>Foiz bo‘yicha reyting</h2><div class="rank">`;
+  h += `</div></section><section style="display:flex;flex-direction:column;gap:12px"><div class="rank">`;
   gs.map((g,i)=>({g,p:pct(g)})).sort((a,b)=>b.p-a.p).forEach(({g,p})=>{
     h += `<div class="rrow ${p>=100?'full':''}"><span class="rn">${esc(g.name)}</span><div class="rtrack"><i style="width:${p>0?Math.max(p,1.5):0}%"></i></div><span class="rp num">${p1(p)}%</span></div>`;
   });
@@ -296,7 +307,18 @@ function render(){
   h += `<section style="display:flex;flex-direction:column;gap:12px"><h2>Bajarilganlar jurnali</h2><div class="log">`;
   if(!S.log.length) h += `<div class="empty">Hali hech narsa qayd etilmagan. Biror ish bajarilganda shu yerda sanasi bilan ko‘rinadi.</div>`;
   else { h += '<ul>'; S.log.map((e,k)=>({e,k})).reverse().slice(0,60).forEach(({e,k})=>{
-    h += `<li><span class="d num">${esc(e.d)}</span><span>${esc(e.g)}${e.note?' — '+esc(e.note):''}</span><span class="q num" style="${e.n<0?'color:var(--muted)':''}">${e.n<0?'−':'+'}${fmt(Math.abs(e.n))}${editing?` <button class="lx" data-act="unlog" data-k="${k}" aria-label="Bu yozuvni bekor qilish" title="Bekor qilish">×</button>`:''}</span></li>`; }); h+='</ul>'; }
+    if(editing && editK===k){
+      h += `<li class="ledit"><div class="ehead"><b>${esc(e.g)}</b> <span class="note">· hozir yozilgan: ${e.n<0?'−':'+'}${fmt(Math.abs(e.n))}</span></div>
+        <div class="eform">
+          <label>Soni<input id="el-n" type="number" min="1" value="${Math.abs(e.n)}"></label>
+          <label>Sana<input id="el-d" type="date" value="${esc(e.d)}"></label>
+          <label class="grow">Izoh<input id="el-note" type="text" value="${esc(e.note||'')}" placeholder="Izoh (ixtiyoriy)"></label>
+          <button class="gold big" data-act="savelog" data-k="${k}">Tuzatish</button>
+          <button class="big" data-act="cancellog">Bekor</button>
+        </div></li>`;
+      return;
+    }
+    h += `<li><span class="d num">${esc(e.d)}</span><span>${esc(e.g)}${e.note?' — '+esc(e.note):''}</span><span class="q num" style="${e.n<0?'color:var(--muted)':''}">${e.n<0?'−':'+'}${fmt(Math.abs(e.n))}${editing?`<span class="lbtns"><button class="lbtn" data-act="editlog" data-k="${k}" aria-label="Bu yozuvni tuzatish" title="Tuzatish"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg></button><button class="lbtn danger" data-act="unlog" data-k="${k}" aria-label="Bu yozuvni o‘chirish" title="O‘chirish"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/></svg></button></span>`:''}</span></li>`; }); h+='</ul>'; }
   h += `</div></section>`;
   h += authHTML();
   if(editing && (dirty||msg)) h += `<div class="savebar"><span>${msg||'Saqlanmagan o‘zgarishlar bor'}</span>${dirty?`<button id="save" ${saving?'disabled':''}>${saving?'Saqlanmoqda…':'Saqlash'}</button>`:''}</div>`;
@@ -319,11 +341,29 @@ app.addEventListener('click', e=>{
     S.goals[i].done += q;
     S.log.push({d:today(), g:S.goals[i].name, n:q, note});
     dirty=true; msg=''; render();
+  } else if(act==='editlog'){
+    editK = +b.dataset.k; render();
+    const el = document.getElementById('el-n'); if(el){ el.focus(); el.select(); }
+  } else if(act==='cancellog'){
+    editK = null; render();
+  } else if(act==='savelog'){
+    const k = +b.dataset.k, e2 = S.log[k]; if(!e2) return;
+    const inp = document.getElementById('el-n');
+    const abs = parseInt(inp.value,10);
+    if(!(abs>0)){ inp.focus(); return; }
+    const newN = e2.n<0 ? -abs : abs, delta = newN - e2.n;
+    const g = S.goals.find(x=>x.name===e2.g);
+    if(g) g.done = Math.max(0, g.done + delta);
+    e2.n = newN;
+    const d = document.getElementById('el-d').value; if(d) e2.d = d;
+    e2.note = document.getElementById('el-note').value.trim();
+    editK = null; dirty=true; msg=''; render();
   } else if(act==='unlog'){
     const k = +b.dataset.k, e2 = S.log[k]; if(!e2) return;
+    if(!confirm(`“${e2.g}” uchun ${e2.n>0?'+':''}${e2.n} yozuvini o‘chiraymi?`)) return;
     const g = S.goals.find(x=>x.name===e2.g);
     if(g) g.done = Math.max(0, g.done - e2.n);
-    S.log.splice(k,1); dirty=true; msg=''; render();
+    S.log.splice(k,1); editK=null; dirty=true; msg=''; render();
   } else if(act==='rm'){
     S.goals.splice(i,1); dirty=true; msg=''; render();
   } else if(act==='new'){
