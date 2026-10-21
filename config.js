@@ -5,7 +5,7 @@
 //                   "service_role" / "secret" kalitni HECH QACHON bu yerga qo'ymang!)
 window.MAQSAD_CONFIG = {
   SUPABASE_URL: "https://oqamtwbzpkgpvmenutar.supabase.co",
-  SUPABASE_KEY: "SIZNING_ANON_KALIT",
+  SUPABASE_KEY: "sb_publishable_gVa1IbPPAU07Gp4GZaPRdw_EVZGfLs3",
   // Supabase'da Google provider yoqilgandan keyin true qiling
   GOOGLE_LOGIN: false
 };
