@@ -117,12 +117,19 @@ input{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--
 @keyframes grow{from{transform:scale(.2);opacity:0}}
 .lx{background:none;border:0;color:var(--muted);padding:0 4px;font-size:16px;line-height:1}
 .lx:hover{color:var(--ink)}
+.loading{display:flex;align-items:center;justify-content:center;gap:12px;min-height:60vh;color:var(--muted);font-weight:600}
+.spin{width:22px;height:22px;border-radius:50%;border:3px solid var(--track);border-top-color:var(--gold);animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:no-preference){.intro .ringfg{animation:ringin 1.4s cubic-bezier(.2,.8,.2,1) both}.intro .bar i{animation:barin 1.4s cubic-bezier(.2,.8,.2,1) both}}
+@keyframes ringin{from{stroke-dashoffset:var(--c)}}
+@keyframes barin{from{width:0}}
 .ebanner{background:var(--gold-soft);border:1px solid var(--gold);border-radius:12px;padding:12px 14px;font-size:14px;line-height:1.5}
-.ebox{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:10px;background:var(--bg);border:1px dashed var(--gold)}
+.ebox{display:grid;grid-template-columns:minmax(0,1fr) 48px 48px;gap:8px}
 .ebl{font-size:13px;font-weight:700;color:var(--gold-deep)}
 .bignum{font-size:18px;font-weight:700;min-height:46px}
 .ebtns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .btn-add,.btn-sub,.btn-del,.btn-chip{min-height:46px;font-weight:700;border-radius:10px}
+.btn-add,.btn-sub{padding:0;font-size:24px;line-height:1}
 .btn-add{background:var(--ok);color:#fff;border-color:var(--ok)}
 .btn-sub{background:var(--surface);color:var(--ink);border:1px solid var(--muted)}
 .btn-del{width:100%;background:var(--surface);color:#b42318;border:1px solid #d9a19b}
@@ -178,7 +185,7 @@ button.big{min-height:42px}
 (function(){
 const SAVED = JSON.parse(document.getElementById('state').textContent);
 let S = JSON.parse(JSON.stringify(SAVED));
-let canEdit = false, editing = false, dirty = false, saving = false, msg = '', editK = null, saveErr = '', saveTimer = null;
+let canEdit = false, editing = false, dirty = false, saving = false, msg = '', editK = null, saveErr = '', saveTimer = null, ready = false, intro = false;
 let sb = null, user = null, loginOpen = false;
 const CFG = window.MAQSAD_CONFIG || {};
 let view = 'rose'; try{ view = localStorage.getItem('maqsad-view') || 'rose'; }catch(e){}
@@ -268,29 +275,45 @@ function tanksHTML(gs){
   return h + `</div></section>`;
 }
 
+function cnt(v, kind, suffix){
+  const show = x => (kind==='p1' ? p1(x) : fmt(Math.round(x))) + (suffix||'');
+  return intro ? `<span class="cnt" data-to="${v}" data-k="${kind}" data-s="${esc(suffix||'')}">${show(0)}</span>` : show(v);
+}
+function runCounters(){
+  const els = [...app.querySelectorAll('.cnt')]; if(!els.length) return;
+  const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const dur = reduce ? 0 : 1400, t0 = performance.now();
+  const step = now => {
+    const t = dur ? Math.min(1, (now - t0) / dur) : 1, e = 1 - Math.pow(1 - t, 3);
+    els.forEach(el => { const to = +el.dataset.to, x = to * e, s = el.dataset.s || '';
+      el.textContent = (el.dataset.k==='p1' ? p1(x) : fmt(Math.round(x))) + s; });
+    if(t < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
 function render(){
+  if(!ready){ app.innerHTML = `<div class="wrap"><div class="loading" role="status"><span class="spin" aria-hidden="true"></span>Yuklanmoqda…</div></div>`; return; }
   const gs = S.goals;
   const avg = gs.length ? gs.reduce((a,g)=>a+pct(g),0)/gs.length : 0;
   const budget = gs.reduce((a,g)=>a+(+g.budget||0),0);
   const value = gs.reduce((a,g)=>a+(+g.budget||0)*pct(g)/100,0);
   const fin = gs.filter(g=>pct(g)>=100).length;
   const C = 2*Math.PI*52, off = C*(1-avg/100);
-  let h = `<div class="wrap">
+  let h = `<div class="wrap${intro?' intro':''}">
   <div class="head"><div><div class="eyebrow">Hayotiy reja · ${gs.length} ta maqsad</div><h1>${esc(S.title)}</h1></div>
   <div class="row"><div class="seg" role="group" aria-label="Ko‘rinish"><button data-view="rings" aria-pressed="${view==='rings'&&!editing}">Halqalar</button><button data-view="rose" aria-pressed="${view==='rose'&&!editing}">Gul</button><button data-view="tanks" aria-pressed="${view==='tanks'&&!editing}">Idishlar</button><button data-view="cards" aria-pressed="${(view!=='tanks'&&view!=='rose'&&view!=='rings')||editing}">Kartalar</button></div>
   ${canEdit ? `<button id="tog" class="${editing?'primary':''}">${editing?'✓ Tahrirlashni tugatish':'✏️ Tahrirlash'}</button>`:''}</div></div>
-  ${editing?`<div class="ebanner"><b>Tahrirlash rejimi.</b> Har bir kartada <b>＋ Qo‘shish</b> yoki <b>− Ayirish</b> bilan raqam kiriting. Xato yozsangiz — pastdagi jurnalda <b>✏️ Raqamni tuzatish</b> yoki <b>🗑 O‘chirish</b>. Hammasi <b>o‘zi saqlanadi</b>.</div>`:''}
   <section class="summary">
     <svg class="ring" viewBox="0 0 120 120" role="img" aria-label="Umumiy bajarilish ${p1(avg)} foiz">
       <circle cx="60" cy="60" r="52" fill="none" stroke="var(--track)" stroke-width="12"/>
-      <circle cx="60" cy="60" r="52" fill="none" stroke="var(--gold)" stroke-width="12" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${off}" transform="rotate(-90 60 60)"/>
-      <text x="60" y="66" text-anchor="middle" fill="var(--deep)" font-family="Bricolage Grotesque, Georgia, serif" font-weight="800" font-size="22">${p1(avg)}%</text>
+      <circle class="ringfg" style="--c:${C}" cx="60" cy="60" r="52" fill="none" stroke="var(--gold)" stroke-width="12" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${off}" transform="rotate(-90 60 60)"/>
+      <text x="60" y="66" text-anchor="middle" fill="var(--deep)" font-family="Bricolage Grotesque, Georgia, serif" font-weight="800" font-size="22">${cnt(avg,'p1','%')}</text>
     </svg>
     <div class="stats">
-      <div class="stat"><b class="num">${p1(avg)}%</b><span>umumiy bajarilish</span></div>
-      <div class="stat"><b class="num">${fmt(budget)} mln $</b><span>umumiy byudjet</span></div>
-      <div class="stat"><b class="num">${p1(value)} mln $</b><span>bajarilgan qism qiymati</span></div>
-      <div class="stat"><b class="num">${fin} / ${gs.length}</b><span>to‘liq bajarilgan</span></div>
+      <div class="stat"><b class="num">${cnt(avg,'p1','%')}</b><span>umumiy bajarilish</span></div>
+      <div class="stat"><b class="num">${cnt(budget,'int',' mln $')}</b><span>umumiy byudjet</span></div>
+      <div class="stat"><b class="num">${cnt(value,'p1',' mln $')}</b><span>bajarilgan qism qiymati</span></div>
+      <div class="stat"><b class="num">${cnt(fin,'int')} / ${gs.length}</b><span>to‘liq bajarilgan</span></div>
     </div>
   </section>
 `;
@@ -299,19 +322,15 @@ function render(){
   gs.forEach((g,i)=>{
     const p = pct(g), left = Math.max(0,g.target-g.done);
     h += `<article class="goal ${p>=100?'done':''}">
-      <div class="gtop"><div class="gname"><span class="gidx">${i+1}</span>${esc(g.name)}</div><div class="pct num">${p1(p)}%</div></div>
+      <div class="gtop"><div class="gname"><span class="gidx">${i+1}</span>${esc(g.name)}</div><div class="pct num">${cnt(p,'p1','%')}</div></div>
       <div class="bar"><i style="width:${p}%"></i></div>
-      <div class="meta num"><span>Bajarildi: <strong>${fmt(g.done)}</strong> / ${fmt(g.target)} ${esc(g.unit)}</span><span>Qoldi: <strong>${fmt(left)}</strong></span></div>
+      <div class="meta num"><span>Bajarildi: <strong>${cnt(g.done,'int')}</strong> / ${fmt(g.target)} ${esc(g.unit)}</span><span>Qoldi: <strong>${cnt(left,'int')}</strong></span></div>
       <div class="meta num"><span>${g.budget?`Byudjet: <strong>${fmt(g.budget)} mln $</strong>`:'Byudjet belgilanmagan'}</span></div>`;
     if(editing){
       h += `<div class="ebox">
-        <label class="ebl" for="q${i}">Nechta bajarildi?</label>
-        <input id="q${i}" class="bignum" type="number" min="1" inputmode="numeric" placeholder="Masalan: 5">
-        <input id="n${i}" type="text" placeholder="Izoh (ixtiyoriy)" aria-label="Izoh">
-        <div class="ebtns">
-          <button class="btn-add" data-act="add" data-i="${i}">＋ Qo‘shish</button>
-          <button class="btn-sub" data-act="sub" data-i="${i}">− Ayirish</button>
-        </div>
+        <input id="q${i}" class="bignum" type="number" min="1" inputmode="numeric" aria-label="${esc(g.name)}: soni">
+        <button class="btn-add" data-act="add" data-i="${i}" aria-label="Qo‘shish" title="Qo‘shish">+</button>
+        <button class="btn-sub" data-act="sub" data-i="${i}" aria-label="Ayirish" title="Ayirish">−</button>
       </div>
       <details class="cfg"><summary>⚙ Maqsad sozlamalari</summary>
       <div class="form" style="margin-top:10px">
@@ -349,6 +368,7 @@ function render(){
   }
   h += `</div>`;
   app.innerHTML = h;
+  if(intro){ intro = false; runCounters(); }
 }
 
 app.addEventListener('click', e=>{
@@ -360,7 +380,7 @@ app.addEventListener('click', e=>{
   if(act==='add'||act==='sub'){
     let q = parseInt(document.getElementById('q'+i).value,10);
     if(!(q>0)){ document.getElementById('q'+i).focus(); return; }
-    const note = document.getElementById('n'+i).value.trim();
+    const note = '';
     if(act==='sub') q = -Math.min(q, S.goals[i].done);
     if(q===0) return;
     S.goals[i].done += q;
@@ -478,14 +498,18 @@ app.addEventListener('submit', async e=>{
 window.addEventListener('beforeunload', e=>{ if(dirty){ e.preventDefault(); e.returnValue=''; } });
 
 render();
+// Supabase javob bermasa 6 soniyadan keyin zaxira raqamlar ko'rsatiladi
+const fallbackTimer = setTimeout(()=>{ if(!ready){ ready = true; intro = true; render(); } }, 6000);
 (async()=>{
   const ok = window.supabase && CFG.SUPABASE_URL && CFG.SUPABASE_KEY && !/SIZNING|YOUR/.test(CFG.SUPABASE_URL + CFG.SUPABASE_KEY);
-  if(!ok){ render(); return; }
+  if(!ok){ clearTimeout(fallbackTimer); ready = true; intro = true; render(); return; }
   sb = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_KEY);
   const { data:{ session } } = await sb.auth.getSession();
   user = session ? session.user : null;
   await Promise.all([load(), checkOwner()]);
   if(user) loginOpen = false;
+  clearTimeout(fallbackTimer);
+  if(!ready){ ready = true; intro = true; }
   render();
   sb.auth.onAuthStateChange((_ev, s)=>{
     const was = user && user.id; user = s ? s.user : null;
