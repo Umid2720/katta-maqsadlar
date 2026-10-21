@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Katta maqsadlar</title>
+<title>AQEM Group maqsadlari</title>
 <meta name="description" content="Hayotiy katta maqsadlar: nima bajarildi, nima qoldi va umumiy foiz.">
-<meta property="og:title" content="Katta maqsadlar">
+<meta property="og:title" content="AQEM Group maqsadlari">
 <meta property="og:description" content="Hayotiy katta maqsadlar va ularning bajarilishi.">
 <meta name="theme-color" content="#123b33">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23123b33'/%3E%3Ccircle cx='32' cy='32' r='18' fill='none' stroke='%23b8862b' stroke-width='7' stroke-dasharray='80 200' stroke-linecap='round' transform='rotate(-90 32 32)'/%3E%3C/svg%3E">
@@ -117,6 +117,22 @@ input{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--
 @keyframes grow{from{transform:scale(.2);opacity:0}}
 .lx{background:none;border:0;color:var(--muted);padding:0 4px;font-size:16px;line-height:1}
 .lx:hover{color:var(--ink)}
+.ebanner{background:var(--gold-soft);border:1px solid var(--gold);border-radius:12px;padding:12px 14px;font-size:14px;line-height:1.5}
+.ebox{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:10px;background:var(--bg);border:1px dashed var(--gold)}
+.ebl{font-size:13px;font-weight:700;color:var(--gold-deep)}
+.bignum{font-size:18px;font-weight:700;min-height:46px}
+.ebtns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btn-add,.btn-sub,.btn-del,.btn-chip{min-height:46px;font-weight:700;border-radius:10px}
+.btn-add{background:var(--ok);color:#fff;border-color:var(--ok)}
+.btn-sub{background:var(--surface);color:var(--ink);border:1px solid var(--muted)}
+.btn-del{width:100%;background:var(--surface);color:#b42318;border:1px solid #d9a19b}
+details.cfg summary{list-style:none;cursor:pointer;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;font-weight:600;color:var(--ink);background:var(--surface)}
+details.cfg summary::-webkit-details-marker{display:none}
+details.cfg[open] summary{border-color:var(--gold)}
+.lacts{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap}
+.btn-chip{min-height:40px;padding:6px 14px;font-size:14px;background:var(--surface);border:1px solid var(--gold);color:var(--ink)}
+.btn-chip.red{border-color:#d9a19b;color:#b42318}
+.savebar.ok{background:var(--ok)}.savebar.err{background:#b42318}.savebar.wait{background:var(--deep)}
 .lbtns{display:inline-flex;gap:6px;margin-left:10px;vertical-align:middle}
 .lbtn{width:40px;height:40px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:10px;border:1px solid var(--gold);background:var(--surface);color:var(--gold-deep)}
 .lbtn.danger{border-color:#d9a19b;color:#b42318}
@@ -162,7 +178,7 @@ button.big{min-height:42px}
 (function(){
 const SAVED = JSON.parse(document.getElementById('state').textContent);
 let S = JSON.parse(JSON.stringify(SAVED));
-let canEdit = false, editing = false, dirty = false, saving = false, msg = '', editK = null;
+let canEdit = false, editing = false, dirty = false, saving = false, msg = '', editK = null, saveErr = '', saveTimer = null;
 let sb = null, user = null, loginOpen = false;
 const CFG = window.MAQSAD_CONFIG || {};
 let view = 'rose'; try{ view = localStorage.getItem('maqsad-view') || 'rose'; }catch(e){}
@@ -262,7 +278,8 @@ function render(){
   let h = `<div class="wrap">
   <div class="head"><div><div class="eyebrow">Hayotiy reja · ${gs.length} ta maqsad</div><h1>${esc(S.title)}</h1></div>
   <div class="row"><div class="seg" role="group" aria-label="Ko‘rinish"><button data-view="rings" aria-pressed="${view==='rings'&&!editing}">Halqalar</button><button data-view="rose" aria-pressed="${view==='rose'&&!editing}">Gul</button><button data-view="tanks" aria-pressed="${view==='tanks'&&!editing}">Idishlar</button><button data-view="cards" aria-pressed="${(view!=='tanks'&&view!=='rose'&&view!=='rings')||editing}">Kartalar</button></div>
-  ${canEdit ? `<button id="tog" class="${editing?'primary':''}">${editing?'Ko‘rish rejimi':'Tahrirlash'}</button>`:''}</div></div>
+  ${canEdit ? `<button id="tog" class="${editing?'primary':''}">${editing?'✓ Tahrirlashni tugatish':'✏️ Tahrirlash'}</button>`:''}</div></div>
+  ${editing?`<div class="ebanner"><b>Tahrirlash rejimi.</b> Har bir kartada <b>＋ Qo‘shish</b> yoki <b>− Ayirish</b> bilan raqam kiriting. Xato yozsangiz — pastdagi jurnalda <b>✏️ Raqamni tuzatish</b> yoki <b>🗑 O‘chirish</b>. Hammasi <b>o‘zi saqlanadi</b>.</div>`:''}
   <section class="summary">
     <svg class="ring" viewBox="0 0 120 120" role="img" aria-label="Umumiy bajarilish ${p1(avg)} foiz">
       <circle cx="60" cy="60" r="52" fill="none" stroke="var(--track)" stroke-width="12"/>
@@ -287,18 +304,23 @@ function render(){
       <div class="meta num"><span>Bajarildi: <strong>${fmt(g.done)}</strong> / ${fmt(g.target)} ${esc(g.unit)}</span><span>Qoldi: <strong>${fmt(left)}</strong></span></div>
       <div class="meta num"><span>${g.budget?`Byudjet: <strong>${fmt(g.budget)} mln $</strong>`:'Byudjet belgilanmagan'}</span></div>`;
     if(editing){
-      h += `<div class="add sub" data-i="${i}">
-        <input id="q${i}" type="number" min="1" placeholder="Soni" aria-label="Soni">
+      h += `<div class="ebox">
+        <label class="ebl" for="q${i}">Nechta bajarildi?</label>
+        <input id="q${i}" class="bignum" type="number" min="1" inputmode="numeric" placeholder="Masalan: 5">
         <input id="n${i}" type="text" placeholder="Izoh (ixtiyoriy)" aria-label="Izoh">
-        <button class="gold" data-act="add" data-i="${i}" aria-label="Qo‘shish">+</button><button data-act="sub" data-i="${i}" aria-label="Ayirish">−</button></div>
-      <details><summary class="note" style="cursor:pointer">Maqsadni o‘zgartirish</summary>
-      <div class="form" style="margin-top:8px">
+        <div class="ebtns">
+          <button class="btn-add" data-act="add" data-i="${i}">＋ Qo‘shish</button>
+          <button class="btn-sub" data-act="sub" data-i="${i}">− Ayirish</button>
+        </div>
+      </div>
+      <details class="cfg"><summary>⚙ Maqsad sozlamalari</summary>
+      <div class="form" style="margin-top:10px">
         <label class="full">Nomi<input id="fn${i}" value="${esc(g.name)}" data-f="name" data-i="${i}"></label>
         <label>Maqsad (soni)<input id="ft${i}" type="number" min="0" value="${g.target}" data-f="target" data-i="${i}"></label>
         <label>Birligi<input id="fu${i}" value="${esc(g.unit)}" data-f="unit" data-i="${i}"></label>
         <label>Byudjet (mln $)<input id="fb${i}" type="number" min="0" step="any" value="${g.budget}" data-f="budget" data-i="${i}"></label>
-        <label>Bajarildi<input id="fd${i}" type="number" min="0" value="${g.done}" data-f="done" data-i="${i}"></label>
-        <div class="full row"><button class="del" data-act="rm" data-i="${i}">Bu maqsadni o‘chirish</button></div>
+        <label>Bajarildi (jami)<input id="fd${i}" type="number" min="0" value="${g.done}" data-f="done" data-i="${i}"></label>
+        <div class="full"><button class="btn-del" data-act="rm" data-i="${i}">🗑 Bu maqsadni butunlay o‘chirish</button></div>
       </div></details>`;
     }
     h += `</article>`;
@@ -318,10 +340,13 @@ function render(){
         </div></li>`;
       return;
     }
-    h += `<li><span class="d num">${esc(e.d)}</span><span>${esc(e.g)}${e.note?' — '+esc(e.note):''}</span><span class="q num" style="${e.n<0?'color:var(--muted)':''}">${e.n<0?'−':'+'}${fmt(Math.abs(e.n))}${editing?`<span class="lbtns"><button class="lbtn" data-act="editlog" data-k="${k}" aria-label="Bu yozuvni tuzatish" title="Tuzatish"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg></button><button class="lbtn danger" data-act="unlog" data-k="${k}" aria-label="Bu yozuvni o‘chirish" title="O‘chirish"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/></svg></button></span>`:''}</span></li>`; }); h+='</ul>'; }
+    h += `<li><span class="d num">${esc(e.d)}</span><span>${esc(e.g)}${e.note?' — '+esc(e.note):''}</span><span class="q num" style="${e.n<0?'color:var(--muted)':''}">${e.n<0?'−':'+'}${fmt(Math.abs(e.n))}</span>${editing?`<div class="lacts"><button class="btn-chip" data-act="editlog" data-k="${k}">✏️ Raqamni tuzatish</button><button class="btn-chip red" data-act="unlog" data-k="${k}">🗑 O‘chirish</button></div>`:''}</li>`; }); h+='</ul>'; }
   h += `</div></section>`;
   h += authHTML();
-  if(editing && (dirty||msg)) h += `<div class="savebar"><span>${msg||'Saqlanmagan o‘zgarishlar bor'}</span>${dirty?`<button id="save" ${saving?'disabled':''}>${saving?'Saqlanmoqda…':'Saqlash'}</button>`:''}</div>`;
+  if(editing){
+    const st = saving ? ['wait','⏳ Saqlanmoqda…'] : saveErr ? ['err','⚠ '+saveErr] : dirty ? ['wait','⏳ Saqlanmoqda…'] : ['ok','✓ Hammasi saqlandi'];
+    h += `<div class="savebar ${st[0]}" role="status"><span>${st[1]}${msg&&!saveErr?' · '+esc(msg):''}</span>${saveErr?`<button id="save">Qayta urinish</button>`:''}</div>`;
+  }
   h += `</div>`;
   app.innerHTML = h;
 }
@@ -329,7 +354,7 @@ function render(){
 app.addEventListener('click', e=>{
   const b = e.target.closest('button'); if(!b) return;
   if(b.dataset.view){ view=b.dataset.view; try{ localStorage.setItem('maqsad-view',view); }catch(e){} if(editing&&view!=='cards') editing=false; render(); return; }
-  if(b.id==='tog'){ editing=!editing; render(); return; }
+  if(b.id==='tog'){ if(editing && (dirty||saving)){ save(); } editing=!editing; editK=null; render(); return; }
   if(b.id==='save'){ save(); return; }
   const i = +b.dataset.i, act = b.dataset.act;
   if(act==='add'||act==='sub'){
@@ -340,7 +365,7 @@ app.addEventListener('click', e=>{
     if(q===0) return;
     S.goals[i].done += q;
     S.log.push({d:today(), g:S.goals[i].name, n:q, note});
-    dirty=true; msg=''; render();
+    changed(`${S.goals[i].name}: ${q>0?'+':'−'}${fmt(Math.abs(q))}`);
   } else if(act==='editlog'){
     editK = +b.dataset.k; render();
     const el = document.getElementById('el-n'); if(el){ el.focus(); el.select(); }
@@ -357,24 +382,25 @@ app.addEventListener('click', e=>{
     e2.n = newN;
     const d = document.getElementById('el-d').value; if(d) e2.d = d;
     e2.note = document.getElementById('el-note').value.trim();
-    editK = null; dirty=true; msg=''; render();
+    editK = null; changed(`${e2.g}: tuzatildi`);
   } else if(act==='unlog'){
     const k = +b.dataset.k, e2 = S.log[k]; if(!e2) return;
-    if(!confirm(`“${e2.g}” uchun ${e2.n>0?'+':''}${e2.n} yozuvini o‘chiraymi?`)) return;
+    if(!confirm(`“${e2.g}” uchun ${e2.n>0?'+':'−'}${fmt(Math.abs(e2.n))} yozuvini o‘chiraymi?\nMaqsaddagi raqam ham shunga qarab kamayadi.`)) return;
     const g = S.goals.find(x=>x.name===e2.g);
     if(g) g.done = Math.max(0, g.done - e2.n);
-    S.log.splice(k,1); editK=null; dirty=true; msg=''; render();
+    S.log.splice(k,1); editK=null; changed(`${e2.g}: yozuv o‘chirildi`);
   } else if(act==='rm'){
-    S.goals.splice(i,1); dirty=true; msg=''; render();
+    if(!confirm(`“${S.goals[i].name}” maqsadini butunlay o‘chiraymi?`)) return;
+    const nm = S.goals[i].name; S.goals.splice(i,1); changed(`${nm} o‘chirildi`);
   } else if(act==='new'){
-    S.goals.push({name:'Yangi maqsad',unit:'dona',target:100,budget:0,done:0}); dirty=true; msg=''; render();
+    S.goals.push({name:'Yangi maqsad',unit:'dona',target:100,budget:0,done:0}); changed('Yangi maqsad qo‘shildi');
   }
 });
 app.addEventListener('change', e=>{
   const t = e.target; if(!t.dataset.f) return;
   const g = S.goals[+t.dataset.i], f = t.dataset.f;
   g[f] = (f==='name'||f==='unit') ? t.value : Math.max(0, Number(t.value)||0);
-  dirty=true; msg=''; render();
+  changed('Sozlama o‘zgardi');
 });
 
 function authHTML(){
@@ -411,16 +437,25 @@ async function load(){
   }catch(e){}
 }
 
+function changed(text){
+  dirty = true; saveErr = ''; msg = text || '';
+  render();
+  clearTimeout(saveTimer); saveTimer = setTimeout(save, 700);
+}
+
 async function save(){
-  if(!sb || saving) return;
+  clearTimeout(saveTimer);
+  if(!sb || saving || !dirty) return;
   saving = true; render();
+  const snapshot = JSON.stringify(S);
   try{
-    const { data, error } = await sb.from('maqsadlar').update({ data: S, updated_at: new Date().toISOString() }).eq('id', 1).select('id');
+    const { data, error } = await sb.from('maqsadlar').update({ data: JSON.parse(snapshot), updated_at: new Date().toISOString() }).eq('id', 1).select('id');
     if(error) throw error;
     if(!data || !data.length) throw { code: 'denied' };
-    msg = 'Saqlandi'; dirty = false;
+    saveErr = '';
+    if(JSON.stringify(S) === snapshot) dirty = false; else { saveTimer = setTimeout(save, 300); }
   }catch(err){
-    msg = err && err.code === 'denied' ? 'Saqlashga ruxsat yo‘q — egasining hisobi bilan kiring.' : 'Saqlab bo‘lmadi. Internetni tekshirib, qayta urinib ko‘ring.';
+    saveErr = err && err.code === 'denied' ? 'Saqlanmadi: bu hisobda ruxsat yo‘q.' : 'Saqlanmadi: internetni tekshiring.';
   }
   saving = false; render();
 }
