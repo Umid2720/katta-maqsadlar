@@ -129,6 +129,10 @@ input{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--
 .ebox .q{grid-area:q}.ebox .btn-add{grid-area:add}.ebox .btn-sub{grid-area:sub}.ebox .s{grid-area:s;min-height:42px}.ebox .cur{grid-area:cur}
 select.cur{font:inherit;font-weight:600;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:0 6px;min-height:42px;width:100%}
 .eform select.cur{width:96px}
+.cfgbtns{display:grid;grid-template-columns:2fr 1fr;gap:8px}
+.btn-save{min-height:46px;font-weight:700;border-radius:10px;background:var(--ok);color:#fff;border-color:var(--ok)}
+.cfgbtns .btn-sub{font-size:15px}
+.cfgerr{color:#b42318;font-size:13px;font-weight:600}.cfgerr:empty{display:none}
 input.need{border-color:#b42318;box-shadow:0 0 0 2px rgba(180,35,24,.15)}
 .lsum{color:var(--gold-deep);font-weight:600;white-space:nowrap}
 .ebl{font-size:13px;font-weight:700;color:var(--gold-deep)}
@@ -186,12 +190,13 @@ button.big{min-height:42px}
 <body>
 <div id="app"></div>
 <!-- Zaxira ma'lumot: Supabase ulanmaguncha yoki ishlamay qolsa shu ko'rsatiladi -->
-<script type="application/json" id="state">{"title":"Katta maqsadlar","goals":[{"name":"Tolibi ilm","unit":"talaba","target":1000,"budget":100,"done":0},{"name":"Yo'l","unit":"yo'l","target":1000,"budget":75,"done":0},{"name":"Hodim","unit":"kishi","target":1000,"budget":0,"done":25},{"name":"Uy","unit":"uy","target":100,"budget":4,"done":0},{"name":"Hoji","unit":"kishi","target":100,"budget":1,"done":0},{"name":"Ko'prik","unit":"ko'prik","target":100,"budget":40,"done":0},{"name":"Masjid","unit":"masjid","target":10,"budget":100,"done":0},{"name":"Ehson","unit":"kishi","target":100000,"budget":100,"done":0}],"log":[{"d":"2026-10-11","g":"Hodim","n":25,"note":""},{"d":"2026-10-12","g":"Tolibi ilm","n":59,"note":""},{"d":"2026-10-12","g":"Tolibi ilm","n":600,"note":""}]}</script>
+<script type="application/json" id="state">{"title":"Katta maqsadlar","goals":[{"name":"Tolibi ilm","unit":"talaba","target":1000,"budget":100,"done":659},{"name":"Yo'l","unit":"yo'l","target":1000,"budget":75,"done":0},{"name":"Hodim","unit":"kishi","target":1000,"budget":0,"done":25},{"name":"Uy","unit":"uy","target":100,"budget":4,"done":0},{"name":"Hoji","unit":"kishi","target":100,"budget":1,"done":0},{"name":"Ko'prik","unit":"ko'prik","target":100,"budget":40,"done":0},{"name":"Masjid","unit":"masjid","target":10,"budget":100,"done":0},{"name":"Ehson","unit":"kishi","target":100000,"budget":100,"done":0}],"log":[{"d":"2026-10-11","g":"Hodim","n":25,"note":""},{"d":"2026-10-12","g":"Tolibi ilm","n":59,"note":""},{"d":"2026-10-12","g":"Tolibi ilm","n":600,"note":""}]}</script>
 <script>
 (function(){
 const SAVED = JSON.parse(document.getElementById('state').textContent);
 let S = JSON.parse(JSON.stringify(SAVED));
 let canEdit = false, editing = false, dirty = false, saving = false, msg = '', editK = null, saveErr = '', saveTimer = null, ready = false, intro = false;
+const openCfg = new Set();
 let lastCur = '$'; try{ lastCur = localStorage.getItem('maqsad-cur') || '$'; }catch(e){}
 const CURS = ['$','so‘m'];
 const num = v => { const x = parseFloat(String(v||'').replace(/[\s\u00a0]/g,'').replace(',','.')); return isFinite(x) ? x : NaN; };
@@ -348,13 +353,15 @@ function render(){
         <input id="s${i}" class="s" type="text" inputmode="decimal" placeholder="Summa (ixtiyoriy)" aria-label="${esc(g.name)}: summa (ixtiyoriy)">
         ${curSel('c'+i, lastCur)}
       </div>
-      <details class="cfg"><summary>⚙ Maqsad sozlamalari</summary>
+      <details class="cfg" data-i="${i}" ${openCfg.has(i)?'open':''}><summary>⚙ Maqsad sozlamalari</summary>
       <div class="form" style="margin-top:10px">
-        <label class="full">Nomi<input id="fn${i}" value="${esc(g.name)}" data-f="name" data-i="${i}"></label>
-        <label>Maqsad (soni)<input id="ft${i}" type="number" min="0" value="${g.target}" data-f="target" data-i="${i}"></label>
-        <label>Birligi<input id="fu${i}" value="${esc(g.unit)}" data-f="unit" data-i="${i}"></label>
-        <label>Byudjet (mln $)<input id="fb${i}" type="number" min="0" step="any" value="${g.budget}" data-f="budget" data-i="${i}"></label>
-        <label>Bajarildi (jami)<input id="fd${i}" type="number" min="0" value="${g.done}" data-f="done" data-i="${i}"></label>
+        <label class="full">Nomi<input id="fn${i}" value="${esc(g.name)}"></label>
+        <label>Maqsad (soni)<input id="ft${i}" type="number" min="0" value="${g.target}"></label>
+        <label>Birligi<input id="fu${i}" value="${esc(g.unit)}"></label>
+        <label>Byudjet (mln $)<input id="fb${i}" type="number" min="0" step="any" value="${g.budget}"></label>
+        <label>Bajarildi (jami)<input id="fd${i}" type="number" min="0" value="${g.done}"></label>
+        <div class="full cfgerr" id="fe${i}" role="alert"></div>
+        <div class="full cfgbtns"><button class="btn-save" data-act="savecfg" data-i="${i}">✓ Saqlash</button><button class="btn-sub" data-act="closecfg" data-i="${i}">Bekor</button></div>
         <div class="full"><button class="btn-del" data-act="rm" data-i="${i}">🗑 Bu maqsadni butunlay o‘chirish</button></div>
       </div></details>`;
     }
@@ -435,21 +442,36 @@ app.addEventListener('click', e=>{
     const g = S.goals.find(x=>x.name===e2.g);
     if(g) g.done = Math.max(0, g.done - e2.n);
     S.log.splice(k,1); editK=null; changed(`${e2.g}: yozuv o‘chirildi`);
+  } else if(act==='savecfg'){
+    const g = S.goals[i], err = document.getElementById('fe'+i);
+    const name = document.getElementById('fn'+i).value.trim();
+    if(!name){ err.textContent = 'Nomini yozing.'; document.getElementById('fn'+i).focus(); return; }
+    if(S.goals.some((x,j)=>j!==i && x.name.trim().toLowerCase()===name.toLowerCase())){ err.textContent = `“${name}” nomli maqsad allaqachon bor. Boshqa nom yozing.`; document.getElementById('fn'+i).focus(); return; }
+    const old = g.name;
+    if(old !== name) S.log.forEach(e=>{ if(e.g===old) e.g = name; });
+    g.name = name;
+    g.unit = document.getElementById('fu'+i).value.trim() || 'dona';
+    g.target = Math.max(0, Number(document.getElementById('ft'+i).value)||0);
+    g.budget = Math.max(0, Number(document.getElementById('fb'+i).value)||0);
+    g.done = Math.max(0, Number(document.getElementById('fd'+i).value)||0);
+    openCfg.delete(i); changed(`${name}: sozlamalar saqlandi`);
+  } else if(act==='closecfg'){
+    openCfg.delete(i); render();
   } else if(act==='rm'){
     if(!confirm(`“${S.goals[i].name}” maqsadini butunlay o‘chiraymi?`)) return;
-    const nm = S.goals[i].name; S.goals.splice(i,1); changed(`${nm} o‘chirildi`);
+    const nm = S.goals[i].name; S.goals.splice(i,1); openCfg.clear(); changed(`${nm} o‘chirildi`);
   } else if(act==='new'){
-    S.goals.push({name:'Yangi maqsad',unit:'dona',target:100,budget:0,done:0}); changed('Yangi maqsad qo‘shildi');
+    let n = 1, nm = 'Yangi maqsad'; while(S.goals.some(x=>x.name===nm)) nm = 'Yangi maqsad ' + (++n);
+    S.goals.push({name:nm,unit:'dona',target:100,budget:0,done:0}); openCfg.add(S.goals.length-1); changed('Yangi maqsad qo‘shildi');
+    const el = document.getElementById('fn'+(S.goals.length-1)); if(el){ el.scrollIntoView({block:'center'}); el.select(); }
   }
 });
 app.addEventListener('input', e=>{ e.target.classList && e.target.classList.remove('need'); });
 app.addEventListener('keydown', e=>{ const m=/^[qs](\d+)$/.exec(e.target.id||''); if(m && e.key==='Enter'){ e.preventDefault(); const btn=app.querySelector(`button[data-act="add"][data-i="${m[1]}"]`); if(btn) btn.click(); } });
-app.addEventListener('change', e=>{
-  const t = e.target; if(!t.dataset.f) return;
-  const g = S.goals[+t.dataset.i], f = t.dataset.f;
-  g[f] = (f==='name'||f==='unit') ? t.value : Math.max(0, Number(t.value)||0);
-  changed('Sozlama o‘zgardi');
-});
+app.addEventListener('toggle', e=>{
+  const d = e.target; if(!d.matches || !d.matches('details.cfg')) return;
+  const i = +d.dataset.i; if(d.open) openCfg.add(i); else openCfg.delete(i);
+}, true);
 
 function authHTML(){
   if(!sb) return `<p class="note">Bu sahifa faqat ko‘rish uchun. O‘zgartirishlarni faqat egasi kiritadi.</p>`;
