@@ -125,7 +125,12 @@ input{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--
 @keyframes ringin{from{stroke-dashoffset:var(--c)}}
 @keyframes barin{from{width:0}}
 .ebanner{background:var(--gold-soft);border:1px solid var(--gold);border-radius:12px;padding:12px 14px;font-size:14px;line-height:1.5}
-.ebox{display:grid;grid-template-columns:minmax(0,1fr) 48px 48px;gap:8px}
+.ebox{display:grid;grid-template-columns:minmax(0,1fr) 48px 48px;grid-template-areas:"q add sub" "s cur cur";gap:8px}
+.ebox .q{grid-area:q}.ebox .btn-add{grid-area:add}.ebox .btn-sub{grid-area:sub}.ebox .s{grid-area:s;min-height:42px}.ebox .cur{grid-area:cur}
+select.cur{font:inherit;font-weight:600;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:0 6px;min-height:42px;width:100%}
+.eform select.cur{width:96px}
+input.need{border-color:#b42318;box-shadow:0 0 0 2px rgba(180,35,24,.15)}
+.lsum{color:var(--gold-deep);font-weight:600;white-space:nowrap}
 .ebl{font-size:13px;font-weight:700;color:var(--gold-deep)}
 .bignum{font-size:18px;font-weight:700;min-height:46px}
 .ebtns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -187,6 +192,12 @@ button.big{min-height:42px}
 const SAVED = JSON.parse(document.getElementById('state').textContent);
 let S = JSON.parse(JSON.stringify(SAVED));
 let canEdit = false, editing = false, dirty = false, saving = false, msg = '', editK = null, saveErr = '', saveTimer = null, ready = false, intro = false;
+let lastCur = '$'; try{ lastCur = localStorage.getItem('maqsad-cur') || '$'; }catch(e){}
+const CURS = ['$','so‘m'];
+const num = v => { const x = parseFloat(String(v||'').replace(/[\s\u00a0]/g,'').replace(',','.')); return isFinite(x) ? x : NaN; };
+const money = (v,c) => fmt(Math.round(Math.abs(v)*100)/100) + ' ' + (c||'$');
+const curSel = (id,cur) => `<select id="${id}" class="cur" aria-label="Valyuta">${CURS.map(c=>`<option${c===cur?' selected':''}>${c}</option>`).join('')}</select>`;
+function spent(name){ const t={}; S.log.forEach(e=>{ if(e.g===name && e.s){ const c=e.cur||'$'; t[c]=(t[c]||0)+e.s; } }); return Object.keys(t).filter(c=>t[c]).map(c=>money(t[c],c)).join(' · '); }
 let sb = null, user = null, loginOpen = false;
 const CFG = window.MAQSAD_CONFIG || {};
 let view = 'rose'; try{ view = localStorage.getItem('maqsad-view') || 'rose'; }catch(e){}
@@ -327,12 +338,15 @@ function render(){
       <div class="gtop"><div class="gname"><span class="gidx">${i+1}</span>${esc(g.name)}</div><div class="pct num">${cnt(p,'p1','%')}</div></div>
       <div class="bar"><i style="width:${p}%"></i></div>
       <div class="meta num"><span>Bajarildi: <strong>${cnt(g.done,'int')}</strong> / ${fmt(g.target)} ${esc(g.unit)}</span><span>Qoldi: <strong>${cnt(left,'int')}</strong></span></div>
-      <div class="meta num"><span>${g.budget?`Byudjet: <strong>${fmt(g.budget)} mln $</strong>`:'Byudjet belgilanmagan'}</span></div>`;
+      <div class="meta num"><span>${g.budget?`Byudjet: <strong>${fmt(g.budget)} mln $</strong>`:'Byudjet belgilanmagan'}</span></div>${spent(g.name)?`
+      <div class="meta num"><span>Sarflandi: <strong>${spent(g.name)}</strong></span></div>`:''}`;
     if(editing){
       h += `<div class="ebox">
-        <input id="q${i}" class="bignum" type="number" min="1" inputmode="numeric" aria-label="${esc(g.name)}: soni">
+        <input id="q${i}" class="bignum q" type="number" min="1" inputmode="numeric" placeholder="Soni" aria-label="${esc(g.name)}: soni (majburiy)">
         <button class="btn-add" data-act="add" data-i="${i}" aria-label="Qo‘shish" title="Qo‘shish">+</button>
         <button class="btn-sub" data-act="sub" data-i="${i}" aria-label="Ayirish" title="Ayirish">−</button>
+        <input id="s${i}" class="s" type="text" inputmode="decimal" placeholder="Summa (ixtiyoriy)" aria-label="${esc(g.name)}: summa (ixtiyoriy)">
+        ${curSel('c'+i, lastCur)}
       </div>
       <details class="cfg"><summary>⚙ Maqsad sozlamalari</summary>
       <div class="form" style="margin-top:10px">
@@ -354,6 +368,8 @@ function render(){
       h += `<li class="ledit"><div class="ehead"><b>${esc(e.g)}</b> <span class="note">· hozir yozilgan: ${e.n<0?'−':'+'}${fmt(Math.abs(e.n))}</span></div>
         <div class="eform">
           <label>Soni<input id="el-n" type="number" min="1" value="${Math.abs(e.n)}"></label>
+          <label>Summa<input id="el-s" type="text" inputmode="decimal" value="${e.s?Math.abs(e.s):''}" placeholder="ixtiyoriy"></label>
+          <label>Valyuta${curSel('el-c', e.cur||lastCur)}</label>
           <label>Sana<input id="el-d" type="date" value="${esc(e.d)}"></label>
           <label class="grow">Izoh<input id="el-note" type="text" value="${esc(e.note||'')}" placeholder="Izoh (ixtiyoriy)"></label>
           <button class="gold big" data-act="savelog" data-k="${k}">Tuzatish</button>
@@ -361,7 +377,7 @@ function render(){
         </div></li>`;
       return;
     }
-    h += `<li><span class="d num">${esc(e.d)}</span><span>${esc(e.g)}${e.note?' — '+esc(e.note):''}</span><span class="q num" style="${e.n<0?'color:var(--muted)':''}">${e.n<0?'−':'+'}${fmt(Math.abs(e.n))}</span>${editing?`<div class="lacts"><button class="btn-chip" data-act="editlog" data-k="${k}">✏️ Raqamni tuzatish</button><button class="btn-chip red" data-act="unlog" data-k="${k}">🗑 O‘chirish</button></div>`:''}</li>`; }); h+='</ul>'; }
+    h += `<li><span class="d num">${esc(e.d)}</span><span>${esc(e.g)}${e.note?' — '+esc(e.note):''}${e.s?` <span class="lsum num">· ${money(e.s,e.cur)}</span>`:''}</span><span class="q num" style="${e.n<0?'color:var(--muted)':''}">${e.n<0?'−':'+'}${fmt(Math.abs(e.n))}</span>${editing?`<div class="lacts"><button class="btn-chip" data-act="editlog" data-k="${k}">✏️ Tuzatish</button><button class="btn-chip red" data-act="unlog" data-k="${k}">🗑 O‘chirish</button></div>`:''}</li>`; }); h+='</ul>'; }
   h += `</div></section>`;
   h += authHTML();
   if(editing){
@@ -380,14 +396,19 @@ app.addEventListener('click', e=>{
   if(b.id==='save'){ save(); return; }
   const i = +b.dataset.i, act = b.dataset.act;
   if(act==='add'||act==='sub'){
-    let q = parseInt(document.getElementById('q'+i).value,10);
-    if(!(q>0)){ document.getElementById('q'+i).focus(); return; }
-    const note = '';
+    const qi = document.getElementById('q'+i), si = document.getElementById('s'+i);
+    let q = parseInt(qi.value,10);
+    if(!(q>0)){ qi.classList.add('need'); qi.focus(); return; }
+    const sv = si.value.trim(), amt = sv ? num(sv) : 0;
+    if(sv && !(amt>0)){ si.classList.add('need'); si.focus(); return; }
+    const cur = document.getElementById('c'+i).value; lastCur = cur; try{ localStorage.setItem('maqsad-cur',cur); }catch(e){}
     if(act==='sub') q = -Math.min(q, S.goals[i].done);
     if(q===0) return;
     S.goals[i].done += q;
-    S.log.push({d:today(), g:S.goals[i].name, n:q, note});
-    changed(`${S.goals[i].name}: ${q>0?'+':'−'}${fmt(Math.abs(q))}`);
+    const entry = {d:today(), g:S.goals[i].name, n:q, note:''};
+    if(amt>0){ entry.s = q<0 ? -amt : amt; entry.cur = cur; }
+    S.log.push(entry);
+    changed(`${S.goals[i].name}: ${q>0?'+':'−'}${fmt(Math.abs(q))}${amt>0?' · '+money(amt,cur):''}`);
   } else if(act==='editlog'){
     editK = +b.dataset.k; render();
     const el = document.getElementById('el-n'); if(el){ el.focus(); el.select(); }
@@ -402,6 +423,9 @@ app.addEventListener('click', e=>{
     const g = S.goals.find(x=>x.name===e2.g);
     if(g) g.done = Math.max(0, g.done + delta);
     e2.n = newN;
+    const sv = document.getElementById('el-s').value.trim(), amt = sv ? num(sv) : 0;
+    if(sv && !(amt>0)){ document.getElementById('el-s').focus(); return; }
+    if(amt>0){ e2.s = newN<0 ? -amt : amt; e2.cur = document.getElementById('el-c').value; } else { delete e2.s; delete e2.cur; }
     const d = document.getElementById('el-d').value; if(d) e2.d = d;
     e2.note = document.getElementById('el-note').value.trim();
     editK = null; changed(`${e2.g}: tuzatildi`);
@@ -418,6 +442,8 @@ app.addEventListener('click', e=>{
     S.goals.push({name:'Yangi maqsad',unit:'dona',target:100,budget:0,done:0}); changed('Yangi maqsad qo‘shildi');
   }
 });
+app.addEventListener('input', e=>{ e.target.classList && e.target.classList.remove('need'); });
+app.addEventListener('keydown', e=>{ const m=/^[qs](\d+)$/.exec(e.target.id||''); if(m && e.key==='Enter'){ e.preventDefault(); const btn=app.querySelector(`button[data-act="add"][data-i="${m[1]}"]`); if(btn) btn.click(); } });
 app.addEventListener('change', e=>{
   const t = e.target; if(!t.dataset.f) return;
   const g = S.goals[+t.dataset.i], f = t.dataset.f;
