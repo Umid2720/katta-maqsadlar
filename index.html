@@ -125,14 +125,21 @@ input{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--
 @keyframes ringin{from{stroke-dashoffset:var(--c)}}
 @keyframes barin{from{width:0}}
 .ebanner{background:var(--gold-soft);border:1px solid var(--gold);border-radius:12px;padding:12px 14px;font-size:14px;line-height:1.5}
-.ebox{display:grid;grid-template-columns:minmax(0,1fr) 48px 48px;grid-template-areas:"q add sub" "s cur cur";gap:8px}
-.ebox .q{grid-area:q}.ebox .btn-add{grid-area:add}.ebox .btn-sub{grid-area:sub}.ebox .s{grid-area:s;min-height:42px}.ebox .cur{grid-area:cur}
+.ebox{display:grid;grid-template-columns:minmax(0,1fr) 56px;grid-template-areas:"s add" "q q";gap:8px}
+.ebox .q{grid-area:q;min-height:40px}.ebox .btn-add{grid-area:add}.ebox .btn-sub{grid-area:sub}.ebox .s{grid-area:s}.ebox .cur{grid-area:cur}
 select.cur{font:inherit;font-weight:600;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:0 6px;min-height:42px;width:100%}
 .eform select.cur{width:96px}
 .cfgbtns{display:grid;grid-template-columns:2fr 1fr;gap:8px}
 .btn-save{min-height:46px;font-weight:700;border-radius:10px;background:var(--ok);color:#fff;border-color:var(--ok)}
 .cfgbtns .btn-sub{font-size:15px}
 .cfgerr{color:#b42318;font-size:13px;font-weight:600}.cfgerr:empty{display:none}
+.gright{display:flex;align-items:center;gap:8px}
+.ord{display:inline-flex;gap:4px}
+.obtn{width:34px;height:34px;padding:0;border-radius:8px;font-size:17px;line-height:1;display:inline-flex;align-items:center;justify-content:center}
+.money{display:flex;flex-direction:column;gap:6px}
+.mbar{height:6px;background:var(--track);border-radius:99px;overflow:hidden}
+.mbar i{display:block;height:100%;background:var(--deep);border-radius:99px}
+.over{color:#b42318}
 input.need{border-color:#b42318;box-shadow:0 0 0 2px rgba(180,35,24,.15)}
 .lsum{color:var(--gold-deep);font-weight:600;white-space:nowrap}
 .ebl{font-size:13px;font-weight:700;color:var(--gold-deep)}
@@ -190,7 +197,7 @@ button.big{min-height:42px}
 <body>
 <div id="app"></div>
 <!-- Zaxira ma'lumot: Supabase ulanmaguncha yoki ishlamay qolsa shu ko'rsatiladi -->
-<script type="application/json" id="state">{"title":"Katta maqsadlar","goals":[{"name":"Tolibi ilm","unit":"talaba","target":1000,"budget":100,"done":0},{"name":"Yo'l","unit":"yo'l","target":1000,"budget":75,"done":0},{"name":"Hodim","unit":"kishi","target":1000,"budget":0,"done":25},{"name":"Uy","unit":"uy","target":100,"budget":4,"done":0},{"name":"Hoji","unit":"kishi","target":100,"budget":1,"done":0},{"name":"Ko'prik","unit":"ko'prik","target":100,"budget":40,"done":0},{"name":"Masjid","unit":"masjid","target":10,"budget":100,"done":0},{"name":"Ehson","unit":"kishi","target":100000,"budget":100,"done":0}],"log":[{"d":"2026-10-11","g":"Hodim","n":25,"note":""},{"d":"2026-10-12","g":"Tolibi ilm","n":59,"note":""},{"d":"2026-10-12","g":"Tolibi ilm","n":600,"note":""}]}</script>
+<script type="application/json" id="state">{"title":"Katta maqsadlar","goals":[{"name":"Tolibi ilm","unit":"talaba","target":1000,"budget":100,"done":0},{"name":"Ehson","unit":"kishi","target":100000,"budget":100,"done":0},{"name":"Yo'l","unit":"yo'l","target":1000,"budget":75,"done":0},{"name":"Hodim","unit":"kishi","target":1000,"budget":0,"done":25},{"name":"Uy","unit":"uy","target":100,"budget":4,"done":0},{"name":"Hoji","unit":"kishi","target":100,"budget":1,"done":0},{"name":"Ko'prik","unit":"ko'prik","target":100,"budget":40,"done":0},{"name":"Masjid","unit":"masjid","target":10,"budget":100,"done":0}],"log":[{"d":"2026-10-11","g":"Hodim","n":25,"note":""},{"d":"2026-10-12","g":"Tolibi ilm","n":59,"note":""},{"d":"2026-10-12","g":"Tolibi ilm","n":600,"note":""}]}</script>
 <script>
 (function(){
 const SAVED = JSON.parse(document.getElementById('state').textContent);
@@ -202,7 +209,9 @@ const CURS = ['$','so‘m'];
 const num = v => { const x = parseFloat(String(v||'').replace(/[\s\u00a0]/g,'').replace(',','.')); return isFinite(x) ? x : NaN; };
 const money = (v,c) => fmt(Math.round(Math.abs(v)*100)/100) + ' ' + (c||'$');
 const curSel = (id,cur) => `<select id="${id}" class="cur" aria-label="Valyuta">${CURS.map(c=>`<option${c===cur?' selected':''}>${c}</option>`).join('')}</select>`;
-function spent(name){ const t={}; S.log.forEach(e=>{ if(e.g===name && e.s){ const c=e.cur||'$'; t[c]=(t[c]||0)+e.s; } }); return Object.keys(t).filter(c=>t[c]).map(c=>money(t[c],c)).join(' · '); }
+const usd = v => { const a = Math.abs(v), sg = v<0?'−':''; if(a>=1e6 && Math.round(a)%1e6===0){ return sg + fmt(Math.round(a)/1e6) + ' mln $'; } return sg + fmt(Math.round(a)) + ' $'; };
+function spentUsd(name){ return S.log.reduce((t,e)=> t + (e.g===name && e.s && (e.cur||'$')==='$' ? e.s : 0), 0); }
+function spentOther(name){ const t={}; S.log.forEach(e=>{ if(e.g===name && e.s && (e.cur||'$')!=='$'){ t[e.cur]=(t[e.cur]||0)+e.s; } }); return Object.keys(t).filter(c=>t[c]).map(c=>money(t[c],c)).join(' · '); }
 let sb = null, user = null, loginOpen = false;
 const CFG = window.MAQSAD_CONFIG || {};
 let view = 'rose'; try{ view = localStorage.getItem('maqsad-view') || 'rose'; }catch(e){}
@@ -294,7 +303,7 @@ function tanksHTML(gs){
 
 function cnt(v, kind, suffix, tag){
   tag = tag || 'span';
-  const show = x => (kind==='p1' ? p1(x) : fmt(Math.round(x))) + (suffix||'');
+  const show = x => (kind==='p1' ? p1(x) : kind==='usd' ? usd(x) : fmt(Math.round(x))) + (suffix||'');
   return intro ? `<${tag} class="cnt" data-to="${v}" data-k="${kind}" data-s="${esc(suffix||'')}">${show(0)}</${tag}>` : show(v);
 }
 function runCounters(){
@@ -304,7 +313,7 @@ function runCounters(){
   const step = now => {
     const t = dur ? Math.min(1, (now - t0) / dur) : 1, e = 1 - Math.pow(1 - t, 3);
     els.forEach(el => { const to = +el.dataset.to, x = to * e, s = el.dataset.s || '';
-      el.textContent = (el.dataset.k==='p1' ? p1(x) : fmt(Math.round(x))) + s; });
+      el.textContent = (el.dataset.k==='p1' ? p1(x) : el.dataset.k==='usd' ? usd(x) : fmt(Math.round(x))) + s; });
     if(t < 1) requestAnimationFrame(step);
   };
   requestAnimationFrame(step);
@@ -314,7 +323,7 @@ function render(){
   const gs = S.goals;
   const avg = gs.length ? gs.reduce((a,g)=>a+pct(g),0)/gs.length : 0;
   const budget = gs.reduce((a,g)=>a+(+g.budget||0),0);
-  const value = gs.reduce((a,g)=>a+(+g.budget||0)*pct(g)/100,0);
+  const spentAll = gs.reduce((a,g)=>a+spentUsd(g.name),0), leftAll = budget*1e6 - spentAll;
   const fin = gs.filter(g=>pct(g)>=100).length;
   const C = 2*Math.PI*52, off = C*(1-avg/100);
   let h = `<div class="wrap${intro?' intro':''}">
@@ -330,7 +339,8 @@ function render(){
     <div class="stats">
       <div class="stat"><b class="num">${cnt(avg,'p1','%')}</b><span>umumiy bajarilish</span></div>
       <div class="stat"><b class="num">${cnt(budget,'int',' mln $')}</b><span>umumiy byudjet</span></div>
-      <div class="stat"><b class="num">${cnt(value,'p1',' mln $')}</b><span>bajarilgan qism qiymati</span></div>
+      <div class="stat"><b class="num">${cnt(spentAll,'usd')}</b><span>sarflandi</span></div>
+      <div class="stat"><b class="num">${cnt(leftAll,'usd')}</b><span>byudjetdan qoldi</span></div>
       <div class="stat"><b class="num">${cnt(fin,'int')} / ${gs.length}</b><span>to‘liq bajarilgan</span></div>
     </div>
   </section>
@@ -340,18 +350,21 @@ function render(){
   gs.forEach((g,i)=>{
     const p = pct(g), left = Math.max(0,g.target-g.done);
     h += `<article class="goal ${p>=100?'done':''}">
-      <div class="gtop"><div class="gname"><span class="gidx">${i+1}</span>${esc(g.name)}</div><div class="pct num">${cnt(p,'p1','%')}</div></div>
+      <div class="gtop"><div class="gname"><span class="gidx">${i+1}</span>${esc(g.name)}</div><div class="gright">${editing?`<span class="ord"><button class="obtn" data-act="up" data-i="${i}" aria-label="Yuqoriga" title="Yuqoriga" ${i===0?'disabled':''}>↑</button><button class="obtn" data-act="down" data-i="${i}" aria-label="Pastga" title="Pastga" ${i===gs.length-1?'disabled':''}>↓</button></span>`:''}<div class="pct num">${cnt(p,'p1','%')}</div></div></div>
       <div class="bar"><i style="width:${p}%"></i></div>
       <div class="meta num"><span>Bajarildi: <strong>${cnt(g.done,'int')}</strong> / ${fmt(g.target)} ${esc(g.unit)}</span><span>Qoldi: <strong>${cnt(left,'int')}</strong></span></div>
-      <div class="meta num"><span>${g.budget?`Byudjet: <strong>${fmt(g.budget)} mln $</strong>`:'Byudjet belgilanmagan'}</span></div>${spent(g.name)?`
-      <div class="meta num"><span>Sarflandi: <strong>${spent(g.name)}</strong></span></div>`:''}`;
+      ${(()=>{ const sp = spentUsd(g.name), bud = (+g.budget||0)*1e6, rest = bud - sp, oth = spentOther(g.name), mp = bud>0 ? Math.min(100, sp/bud*100) : 0;
+        let m = `<div class="money">`;
+        m += `<div class="meta num"><span>${bud?`Byudjet: <strong>${fmt(g.budget)} mln $</strong>`:'Byudjet belgilanmagan'}</span>${sp?`<span>Sarflandi: <strong>${cnt(sp,'usd')}</strong></span>`:''}</div>`;
+        if(bud) m += `<div class="mbar" title="Byudjetdan sarflangani"><i style="width:${sp>0?Math.max(mp,1.5):0}%"></i></div>
+          <div class="meta num"><span>Byudjetdan qoldi: <strong class="${rest<0?'over':''}">${rest<0?'oshib ketdi '+usd(-rest):cnt(rest,'usd')}</strong></span></div>`;
+        if(oth) m += `<div class="meta num"><span>Boshqa valyutada: <strong>${oth}</strong></span></div>`;
+        return m + `</div>`; })()}`;
     if(editing){
       h += `<div class="ebox">
-        <input id="q${i}" class="bignum q" type="number" min="1" inputmode="numeric" placeholder="Soni" aria-label="${esc(g.name)}: soni (majburiy)">
+        <input id="s${i}" class="bignum s" type="text" inputmode="decimal" placeholder="Summa, $" aria-label="${esc(g.name)}: summa, dollar">
         <button class="btn-add" data-act="add" data-i="${i}" aria-label="Qo‘shish" title="Qo‘shish">+</button>
-        <button class="btn-sub" data-act="sub" data-i="${i}" aria-label="Ayirish" title="Ayirish">−</button>
-        <input id="s${i}" class="s" type="text" inputmode="decimal" placeholder="Summa (ixtiyoriy)" aria-label="${esc(g.name)}: summa (ixtiyoriy)">
-        ${curSel('c'+i, lastCur)}
+        <input id="q${i}" class="q" type="number" min="1" inputmode="numeric" placeholder="Soni (ixtiyoriy)" aria-label="${esc(g.name)}: soni (ixtiyoriy)">
       </div>
       <details class="cfg" data-i="${i}" ${openCfg.has(i)?'open':''}><summary>⚙ Maqsad sozlamalari</summary>
       <div class="form" style="margin-top:10px">
@@ -360,6 +373,7 @@ function render(){
         <label>Birligi<input id="fu${i}" value="${esc(g.unit)}"></label>
         <label>Byudjet (mln $)<input id="fb${i}" type="number" min="0" step="any" value="${g.budget}"></label>
         <label>Bajarildi (jami)<input id="fd${i}" type="number" min="0" value="${g.done}"></label>
+        <label>Tartib raqami<input id="fo${i}" type="number" min="1" max="${gs.length}" value="${i+1}"></label>
         <div class="full cfgerr" id="fe${i}" role="alert"></div>
         <div class="full cfgbtns"><button class="btn-save" data-act="savecfg" data-i="${i}">✓ Saqlash</button><button class="btn-sub" data-act="closecfg" data-i="${i}">Bekor</button></div>
         <div class="full"><button class="btn-del" data-act="rm" data-i="${i}">🗑 Bu maqsadni butunlay o‘chirish</button></div>
@@ -372,11 +386,10 @@ function render(){
   if(!S.log.length) h += `<div class="empty">Hali hech narsa qayd etilmagan. Biror ish bajarilganda shu yerda sanasi bilan ko‘rinadi.</div>`;
   else { h += '<ul>'; S.log.map((e,k)=>({e,k})).reverse().slice(0,60).forEach(({e,k})=>{
     if(editing && editK===k){
-      h += `<li class="ledit"><div class="ehead"><b>${esc(e.g)}</b> <span class="note">· hozir yozilgan: ${e.n<0?'−':'+'}${fmt(Math.abs(e.n))}</span></div>
+      h += `<li class="ledit"><div class="ehead"><b>${esc(e.g)}</b> <span class="note">· hozir yozilgan: ${[e.s?money(e.s,e.cur):'', e.n?(e.n<0?'−':'+')+fmt(Math.abs(e.n)):''].filter(Boolean).join(' · ')}</span></div>
         <div class="eform">
-          <label>Soni<input id="el-n" type="number" min="1" value="${Math.abs(e.n)}"></label>
-          <label>Summa<input id="el-s" type="text" inputmode="decimal" value="${e.s?Math.abs(e.s):''}" placeholder="ixtiyoriy"></label>
-          <label>Valyuta${curSel('el-c', e.cur||lastCur)}</label>
+          <label>Soni<input id="el-n" type="number" min="0" value="${e.n?Math.abs(e.n):''}" placeholder="ixtiyoriy"></label>
+          <label>Summa, ${esc(e.cur||'$')}<input id="el-s" class="first" type="text" inputmode="decimal" value="${e.s?Math.abs(e.s):''}" placeholder="ixtiyoriy"></label>
           <label>Sana<input id="el-d" type="date" value="${esc(e.d)}"></label>
           <label class="grow">Izoh<input id="el-note" type="text" value="${esc(e.note||'')}" placeholder="Izoh (ixtiyoriy)"></label>
           <button class="gold big" data-act="savelog" data-k="${k}">Tuzatish</button>
@@ -384,7 +397,7 @@ function render(){
         </div></li>`;
       return;
     }
-    h += `<li><span class="d num">${esc(e.d)}</span><span>${esc(e.g)}${e.note?' — '+esc(e.note):''}${e.s?` <span class="lsum num">· ${money(e.s,e.cur)}</span>`:''}</span><span class="q num" style="${e.n<0?'color:var(--muted)':''}">${e.n<0?'−':'+'}${fmt(Math.abs(e.n))}</span>${editing?`<div class="lacts"><button class="btn-chip" data-act="editlog" data-k="${k}">✏️ Tuzatish</button><button class="btn-chip red" data-act="unlog" data-k="${k}">🗑 O‘chirish</button></div>`:''}</li>`; }); h+='</ul>'; }
+    h += `<li><span class="d num">${esc(e.d)}</span><span>${esc(e.g)}${e.note?' — '+esc(e.note):''}${e.n?` <span class="lsum num">· ${e.n<0?'−':'+'}${fmt(Math.abs(e.n))} ${esc((S.goals.find(x=>x.name===e.g)||{}).unit||'')}</span>`:''}</span><span class="q num" style="${(e.s||e.n)<0?'color:var(--muted)':''}">${e.s?money(e.s,e.cur):(e.n<0?'−':'+')+fmt(Math.abs(e.n))}</span>${editing?`<div class="lacts"><button class="btn-chip" data-act="editlog" data-k="${k}">✏️ Tuzatish</button><button class="btn-chip red" data-act="unlog" data-k="${k}">🗑 O‘chirish</button></div>`:''}</li>`; }); h+='</ul>'; }
   h += `</div></section>`;
   h += authHTML();
   if(editing){
@@ -404,35 +417,35 @@ app.addEventListener('click', e=>{
   const i = +b.dataset.i, act = b.dataset.act;
   if(act==='add'||act==='sub'){
     const qi = document.getElementById('q'+i), si = document.getElementById('s'+i);
-    let q = parseInt(qi.value,10);
-    if(!(q>0)){ qi.classList.add('need'); qi.focus(); return; }
-    const sv = si.value.trim(), amt = sv ? num(sv) : 0;
+    const sv = si.value.trim(), amt = sv ? num(sv) : 0, qv = qi.value.trim();
+    let q = qv ? parseInt(qv,10) : 0;
     if(sv && !(amt>0)){ si.classList.add('need'); si.focus(); return; }
-    const cur = document.getElementById('c'+i).value; lastCur = cur; try{ localStorage.setItem('maqsad-cur',cur); }catch(e){}
+    if(qv && !(q>0)){ qi.classList.add('need'); qi.focus(); return; }
+    if(!(amt>0) && !(q>0)){ si.classList.add('need'); si.focus(); return; }
     if(act==='sub') q = -Math.min(q, S.goals[i].done);
-    if(q===0) return;
     S.goals[i].done += q;
     const entry = {d:today(), g:S.goals[i].name, n:q, note:''};
-    if(amt>0){ entry.s = q<0 ? -amt : amt; entry.cur = cur; }
+    if(amt>0){ entry.s = act==='sub' ? -amt : amt; entry.cur = '$'; }
     S.log.push(entry);
-    changed(`${S.goals[i].name}: ${q>0?'+':'−'}${fmt(Math.abs(q))}${amt>0?' · '+money(amt,cur):''}`);
+    changed(`${S.goals[i].name}: ${amt>0?money(amt,'$'):''}${amt>0&&q?' · ':''}${q?'+'+fmt(q)+' '+S.goals[i].unit:''}`);
   } else if(act==='editlog'){
     editK = +b.dataset.k; render();
-    const el = document.getElementById('el-n'); if(el){ el.focus(); el.select(); }
+    const el = document.getElementById('el-s'); if(el){ el.focus(); el.select(); }
   } else if(act==='cancellog'){
     editK = null; render();
   } else if(act==='savelog'){
     const k = +b.dataset.k, e2 = S.log[k]; if(!e2) return;
-    const inp = document.getElementById('el-n');
-    const abs = parseInt(inp.value,10);
-    if(!(abs>0)){ inp.focus(); return; }
+    const inp = document.getElementById('el-n'), sIn = document.getElementById('el-s');
+    const abs = inp.value.trim() ? parseInt(inp.value,10) : 0;
+    const sv = sIn.value.trim(), amt = sv ? num(sv) : 0;
+    if(!(abs>=0)){ inp.focus(); return; }
+    if(sv && !(amt>0)){ sIn.focus(); return; }
+    if(!abs && !(amt>0)){ sIn.focus(); return; }
     const newN = e2.n<0 ? -abs : abs, delta = newN - e2.n;
     const g = S.goals.find(x=>x.name===e2.g);
     if(g) g.done = Math.max(0, g.done + delta);
     e2.n = newN;
-    const sv = document.getElementById('el-s').value.trim(), amt = sv ? num(sv) : 0;
-    if(sv && !(amt>0)){ document.getElementById('el-s').focus(); return; }
-    if(amt>0){ e2.s = newN<0 ? -amt : amt; e2.cur = document.getElementById('el-c').value; } else { delete e2.s; delete e2.cur; }
+    if(amt>0){ e2.s = (e2.s||0)<0 ? -amt : amt; e2.cur = e2.cur || '$'; } else { delete e2.s; delete e2.cur; }
     const d = document.getElementById('el-d').value; if(d) e2.d = d;
     e2.note = document.getElementById('el-note').value.trim();
     editK = null; changed(`${e2.g}: tuzatildi`);
@@ -454,7 +467,14 @@ app.addEventListener('click', e=>{
     g.target = Math.max(0, Number(document.getElementById('ft'+i).value)||0);
     g.budget = Math.max(0, Number(document.getElementById('fb'+i).value)||0);
     g.done = Math.max(0, Number(document.getElementById('fd'+i).value)||0);
-    openCfg.delete(i); changed(`${name}: sozlamalar saqlandi`);
+    openCfg.delete(i);
+    const pos = Math.min(S.goals.length, Math.max(1, parseInt(document.getElementById('fo'+i).value,10) || (i+1))) - 1;
+    if(pos !== i){ const [m] = S.goals.splice(i,1); S.goals.splice(pos,0,m); openCfg.clear(); }
+    changed(`${name}: sozlamalar saqlandi`);
+  } else if(act==='up' || act==='down'){
+    const j = act==='up' ? i-1 : i+1; if(j<0 || j>=S.goals.length) return;
+    [S.goals[i], S.goals[j]] = [S.goals[j], S.goals[i]]; openCfg.clear();
+    changed(`${S.goals[j].name}: ${j+1}-o‘ringa ko‘chdi`);
   } else if(act==='closecfg'){
     openCfg.delete(i); render();
   } else if(act==='rm'){
